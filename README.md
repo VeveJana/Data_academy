@@ -1,7 +1,7 @@
 # Analýza vztahu mezd, cen potravin a HDP v České republice
 
 ## Popis projektu
-Tento projekt analyzuje data o mzdách, cenách potravin a HDP v České republice za období 2006-2018. Cílem je zodpovědět několik výzkumných otázek týkajících se vztahů mezi těmito ekonomickými ukazateli a identifikovat zajímavé trendy a korelace.
+Tento projekt analyzuje data o mzdách, cenách potravin a HDP v České republice za období 2001-2021. Cílem je zodpovědět několik výzkumných otázek týkajících se vztahů mezi těmito ekonomickými ukazateli a identifikovat zajímavé trendy a korelace.
 
 ## Použitá data
 Projekt pracuje s daty z Portálu otevřených dat ČR, která jsou zpracována do dvou hlavních tabulek:

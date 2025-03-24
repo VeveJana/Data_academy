@@ -1,250 +1,246 @@
----- otázka č. 1: Rostou v průběhu let mzdy ve všech odvětvích, nebo v některých klesají?
-with salary_changes as (
-	select
-	industry_name,
-	payroll_year,
-	round(avg(average_wages)) as avg_salary,
-	lag (round(avg(average_wages))) over (partition by industry_name order by payroll_year)	as prev_salary	
-	from t_jana_veverkova_project_SQL_primary_final
-	group by industry_name, payroll_year
+-- Otázka č. 1: Rostou v průběhu let mzdy ve všech odvětvích, nebo v některých klesají?
+WITH salary_changes AS (
+    SELECT
+        industry_name,
+        payroll_year,
+        ROUND(AVG(average_wages)) AS avg_salary,
+        LAG(ROUND(AVG(average_wages))) OVER (PARTITION BY industry_name ORDER BY payroll_year) AS prev_salary    
+    FROM t_jana_veverkova_project_SQL_primary_final
+    GROUP BY industry_name, payroll_year
 )
-select *
-from salary_changes
-where avg_salary < prev_salary
-order by industry_name, payroll_year;
+SELECT *
+FROM salary_changes
+WHERE avg_salary < prev_salary
+ORDER BY industry_name, payroll_year;
 
----- otázka č. 2: Kolik je možné si koupit litrů mléka
--- a kilogramů chleba za první a poslední srovnatelné období v 
---dostupných datech cen a mezd? 
-
-select distinct 
+-- Otázka č. 2: Kolik je možné si koupit litrů mléka a kilogramů chleba za první a poslední
+-- srovnatelné období v dostupných datech cen a mezd?
+-- Vyhledání kategorií pro mléko a chléb
+SELECT DISTINCT 
     food_category_name,
-    min(payroll_year) as first_year,
-    max(payroll_year) as last_year
-from t_jana_veverkova_project_SQL_primary_final
-where (
-    food_category_name ilike '%Mléko%' 
-    or food_category_name ilike '%mleko%'
-    or food_category_name ilike '%Chléb%'
-    or food_category_name ilike '%chleb%'
+    MIN(payroll_year) AS first_year,
+    MAX(payroll_year) AS last_year
+FROM t_jana_veverkova_project_SQL_primary_final
+WHERE (
+    food_category_name ILIKE '%Mléko%' 
+    OR food_category_name ILIKE '%mleko%'
+    OR food_category_name ILIKE '%Chléb%'
+    OR food_category_name ILIKE '%chleb%'
 )
-and food_price is not null
-group by food_category_name
-order by food_category_name; ----- dlouhý čas, ale vyhledá mléko i chleba s roky
+AND food_price IS NOT NULL
+GROUP BY food_category_name
+ORDER BY food_category_name;
 
-select distinct
+-- Kontrola dat prvního roku pro mléko a chléb
+SELECT DISTINCT
     payroll_year,
     food_category_name,
     food_price
-from t_jana_veverkova_project_SQL_primary_final
-where food_category_name in ('Mléko polotučné pasterované', 'Chléb konzumní kmínový')
-    and food_price is not null
-order by payroll_year; --2006
+FROM t_jana_veverkova_project_SQL_primary_final
+WHERE food_category_name IN ('Mléko polotučné pasterované', 'Chléb konzumní kmínový')
+    AND food_price IS NOT NULL
+ORDER BY payroll_year;
 
-select distinct
+-- Kontrola dat posledního roku pro mléko a chléb
+SELECT DISTINCT
     payroll_year,
     food_category_name,
     food_price
-from t_jana_veverkova_project_SQL_primary_final
-where food_category_name in ('Mléko polotučné pasterované', 'Chléb konzumní kmínový')
-    and food_price is not null
-order by payroll_year desc ; -- 2018
+FROM t_jana_veverkova_project_SQL_primary_final
+WHERE food_category_name IN ('Mléko polotučné pasterované', 'Chléb konzumní kmínový')
+    AND food_price IS NOT NULL
+ORDER BY payroll_year DESC;
 
-select
-food_category_name,
-payroll_year,
-round(avg(average_wages)) as average_wages,
-round(cast(avg(food_price) as numeric), 2) as food_price,
-round(avg(average_wages)/avg(food_price)) as amount_can_buy
-from t_jana_veverkova_project_SQL_primary_final
-where food_category_name in ('Mléko polotučné pasterované', 'Chléb konzumní kmínový')
-	and payroll_year in ( 2006, 2018)
-	and food_price is not NUll
-group by food_category_name, payroll_year;
+-- Výpočet kupní síly pro mléko a chléb v prvním a posledním roce
+SELECT
+    food_category_name,
+    payroll_year,
+    ROUND(AVG(average_wages)) AS average_wages,
+    ROUND(CAST(AVG(food_price) AS NUMERIC), 2) AS food_price,
+    ROUND(AVG(average_wages)/AVG(food_price)) AS amount_can_buy
+FROM t_jana_veverkova_project_SQL_primary_final
+WHERE food_category_name IN ('Mléko polotučné pasterované', 'Chléb konzumní kmínový')
+    AND payroll_year IN (2006, 2018)
+    AND food_price IS NOT NULL
+GROUP BY food_category_name, payroll_year;
 
-
-----Otázka číslo 3:
---Která kategorie potravin zdražuje nejpomaleji (je u ní nejnižší percentuální meziroční nárůst)?
-
-with year_changes as (
- 	select
+-- Otázka č. 3: Která kategorie potravin zdražuje nejpomaleji (je u ní nejnižší percentuální meziroční nárůst)?
+WITH year_changes AS (
+    SELECT
         food_category_name,
         payroll_year,
-        avg(food_price) as avg_price,
-        lag(avg(food_price)) over (partition by food_category_name order by payroll_year) as prev_price,
-        round(cast(
-        	(avg(food_price) - lag(avg(food_price)) over (partition by food_category_name order by payroll_year))/
-        	lag(avg(food_price)) over (partition by food_category_name order by payroll_year) *100
-        	as numeric), 2) as year_to_year_change
- 	from t_jana_veverkova_project_SQL_primary_final
- 	where food_price is not null 
- 		and food_category_name is not null
- 	group by food_category_name, payroll_year
- 	order by food_category_name
- )
- select 
- 	food_category_name,
- 	round(avg(year_to_year_change), 2) as avg_year_change
-  from year_changes 
-  where year_to_year_change is not null
-  group by food_category_name 
-  having round(avg(year_to_year_change), 2) > 0
-  order by avg_year_change ;
-
-
----- otázka č. 4:Existuje rok,ve kterém byl meziroční nárůst cen
--- potravin výrazně vyšší než růst mezd (větší než 10 %)?
-
-
-with price_changes as (
-    select
-        payroll_year,
-        avg(food_price) as avg_price,  
-        lag(avg(food_price)) over (order by payroll_year) as prev_price,
-        round(cast(
-            (avg(food_price) - lag(avg(food_price)) over (order by payroll_year))
-            / lag(avg(food_price)) over (order by payroll_year) * 100
-        as numeric), 2) as price_growth
-    from t_jana_veverkova_project_SQL_primary_final
-    where food_price is not null
-    group by payroll_year 
- ),
-salary_changes as (
-    select
-        payroll_year,
-        avg(average_wages) as avg_salary,
-        lag(avg(average_wages)) over (order by payroll_year) as prev_salary,
-        round(cast(
-            (avg(average_wages) - lag(avg(average_wages)) over (order by payroll_year))
-            / lag(avg(average_wages)) over (order by payroll_year) * 100
-        as numeric), 2) as salary_growth
-    from t_jana_veverkova_project_SQL_primary_final
-    group by payroll_year
+        AVG(food_price) AS avg_price,
+        LAG(AVG(food_price)) OVER (PARTITION BY food_category_name ORDER BY payroll_year) AS prev_price,
+        ROUND(CAST(
+            (AVG(food_price) - LAG(AVG(food_price)) OVER (PARTITION BY food_category_name ORDER BY payroll_year))/
+            LAG(AVG(food_price)) OVER (PARTITION BY food_category_name ORDER BY payroll_year) * 100
+            AS NUMERIC), 2) AS year_to_year_change
+    FROM t_jana_veverkova_project_SQL_primary_final
+    WHERE food_price IS NOT NULL 
+        AND food_category_name IS NOT NULL
+    GROUP BY food_category_name, payroll_year
+    ORDER BY food_category_name
 )
-select
+SELECT 
+    food_category_name,
+    ROUND(AVG(year_to_year_change), 2) AS avg_year_change
+FROM year_changes 
+WHERE year_to_year_change IS NOT NULL
+GROUP BY food_category_name 
+HAVING ROUND(AVG(year_to_year_change), 2) > 0
+ORDER BY avg_year_change;
+
+-- Otázka č. 4: Existuje rok, ve kterém byl meziroční nárůst cen potravin výrazně vyšší než růst mezd (větší než 10 %)?
+WITH price_changes AS (
+    SELECT
+        payroll_year,
+        AVG(food_price) AS avg_price,  
+        LAG(AVG(food_price)) OVER (ORDER BY payroll_year) AS prev_price,
+        ROUND(CAST(
+            (AVG(food_price) - LAG(AVG(food_price)) OVER (ORDER BY payroll_year))
+            / LAG(AVG(food_price)) OVER (ORDER BY payroll_year) * 100
+            AS NUMERIC), 2) AS price_growth
+    FROM t_jana_veverkova_project_SQL_primary_final
+    WHERE food_price IS NOT NULL
+    GROUP BY payroll_year 
+),
+salary_changes AS (
+    SELECT
+        payroll_year,
+        AVG(average_wages) AS avg_salary,
+        LAG(AVG(average_wages)) OVER (ORDER BY payroll_year) AS prev_salary,
+        ROUND(CAST(
+            (AVG(average_wages) - LAG(AVG(average_wages)) OVER (ORDER BY payroll_year))
+            / LAG(AVG(average_wages)) OVER (ORDER BY payroll_year) * 100
+            AS NUMERIC), 2) AS salary_growth
+    FROM t_jana_veverkova_project_SQL_primary_final
+    GROUP BY payroll_year
+)
+SELECT
     p.payroll_year,
     p.price_growth,
     s.salary_growth,
-    coalesce(round(cast(p.price_growth - s.salary_growth as numeric), 2), 0) as difference
-from price_changes p
-join salary_changes s on p.payroll_year = s.payroll_year
-where p.price_growth is not null
-	and (p.price_growth - s.salary_growth) > 10
-order by difference desc;
+    COALESCE(ROUND(CAST(p.price_growth - s.salary_growth AS NUMERIC), 2), 0) AS difference
+FROM price_changes p
+JOIN salary_changes s ON p.payroll_year = s.payroll_year
+WHERE p.price_growth IS NOT NULL
+    AND (p.price_growth - s.salary_growth) > 10
+ORDER BY difference DESC;
 
----- 5. otázka: Má výška HDP vliv na změny ve mzdách a cenách potravin? 
--- Neboli, pokud HDP vzroste výrazněji v jednom roce, projeví se to
--- na cenách potravin či mzdách ve stejném nebo následujícím roce výraznějším růstem
-
-create or replace view v_jana_veverkova_growth_overview as
-with gdp_growth_calc as (
-	-- Výpočet meziročních změn HDP, mezd a cen potravin
-    select 
+-- Otázka č. 5: Má výška HDP vliv na změny ve mzdách a cenách potravin?
+--Neboli, pokud HDP vzroste výrazněji v jednom roce, projeví se to na cenách potravin
+-- či mzdách ve stejném nebo následujícím roce výraznějším růstem?
+-- Vytvoření pohledu pro přehled růstu
+CREATE OR REPLACE VIEW v_jana_veverkova_growth_overview AS
+WITH gdp_growth_calc AS (
+    -- Výpočet meziročních změn HDP, mezd a cen potravin
+    SELECT 
         payroll_year,
         gdp,
-        lag(gdp) over (order by payroll_year) as previous_gdp,
-        round(cast((gdp - lag(gdp) over (order by payroll_year)) /
-            lag(gdp) over (order by payroll_year) * 100 as numeric), 2) AS gdp_growth,
+        LAG(gdp) OVER (ORDER BY payroll_year) AS previous_gdp,
+        ROUND(CAST((gdp - LAG(gdp) OVER (ORDER BY payroll_year)) /
+            LAG(gdp) OVER (ORDER BY payroll_year) * 100 AS NUMERIC), 2) AS gdp_growth,
         average_wages,
-        lag(average_wages) over (order by payroll_year) as previous_average_wages,
+        LAG(average_wages) OVER (ORDER BY payroll_year) AS previous_average_wages,
         food_price,
-        lag(food_price) over (order by payroll_year) as previous_food_price
-    from  t_jana_veverkova_project_SQL_secondary_final
+        LAG(food_price) OVER (ORDER BY payroll_year) AS previous_food_price
+    FROM t_jana_veverkova_project_SQL_secondary_final
 )
 -- Finální výpočet včetně meziročních změn v procentech
-select 
+SELECT 
     payroll_year,
     gdp,
     previous_gdp,
     gdp_growth,
     average_wages,
     previous_average_wages,
-    round(cast((average_wages - previous_average_wages) / 
-        previous_average_wages * 100 as numeric), 2) as wages_growth,
+    ROUND(CAST((average_wages - previous_average_wages) / 
+        previous_average_wages * 100 AS NUMERIC), 2) AS wages_growth,
     food_price,
     previous_food_price,
-    round(cast((food_price - previous_food_price) / 
-        previous_food_price * 100 as numeric), 2) as food_price_growth,
-    lag(gdp_growth) over (order by payroll_year) as previous_year_gdp_growth
-from gdp_growth_calc;
+    ROUND(CAST((food_price - previous_food_price) / 
+        previous_food_price * 100 AS NUMERIC), 2) AS food_price_growth,
+    LAG(gdp_growth) OVER (ORDER BY payroll_year) AS previous_year_gdp_growth
+FROM gdp_growth_calc;
 
-select
-	payroll_year as rok,
-	gdp_growth as rust_hdp,
-	wages_growth as rust_mezd,
-	food_price_growth as rust_cen_potravin,
-	previous_year_gdp_growth as rust_hdp_predchozi_rok,
-	case
-		when gdp_growth > 5 then 'výrazný růst HDP'
-		when gdp_growth < -2 then 'výrazný pokles HDP'
-		when gdp_growth < 0 then 'mírný pokles HDP'
-		else 'mírný růst HDP'
-	end as hdp_kategorie,
-	case
-		when abs(wages_growth - gdp_growth) <= 1  then 'koreluje s HDP'
-		when wages_growth > gdp_growth then 'mzdy rostou rychleji než HDP'
-		else 'HDP roste rychleji než mzdy'
-	end as vztah_mzdy_hdp,
-	case 
-		when abs(food_price_growth - gdp_growth) <= 1 then 'koreluje s HDP'
-		when food_price_growth > gdp_growth then 'ceny potravin rostou rychleji'
-		else 'HDP roste rychleji než ceny potravin'		
-	end as vztah_cen_potravin_hdp,
-	case
-		when abs(wages_growth - previous_year_gdp_growth) <= 1 then 'koreluje s HDP předchozího roku'
-		when wages_growth > previous_year_gdp_growth then 'mzdy rostou rychleji než loňské HDP'
-		else 'loňské HDP rostlo rychleji než mzdy'
-	end as vztah_mzdy_lonske_hdp,
-	case
-		when abs(food_price_growth -previous_year_gdp_growth) <= 1 then 'koreluje s HDP předchozího roku'
-		when food_price_growth > previous_year_gdp_growth then 'ceny potravin rostou rychleji než loňské HDP'
-		else 'loňské HDP rostlo rychleji než ceny potravin'
-	end as vztah_cen_potravin_lonske_hdp	
-from v_jana_veverkova_growth_overview
-where payroll_year > 2006
-order by payroll_year;
+-- Analýza vztahů mezi HDP, mzdami a cenami potravin
+SELECT
+    payroll_year AS rok,
+    gdp_growth AS rust_hdp,
+    wages_growth AS rust_mezd,
+    food_price_growth AS rust_cen_potravin,
+    previous_year_gdp_growth AS rust_hdp_predchozi_rok,
+    CASE
+        WHEN gdp_growth > 5 THEN 'výrazný růst HDP'
+        WHEN gdp_growth < -2 THEN 'výrazný pokles HDP'
+        WHEN gdp_growth < 0 THEN 'mírný pokles HDP'
+        ELSE 'mírný růst HDP'
+    END AS hdp_kategorie,
+    CASE
+        WHEN ABS(wages_growth - gdp_growth) <= 1 THEN 'koreluje s HDP'
+        WHEN wages_growth > gdp_growth THEN 'mzdy rostou rychleji než HDP'
+        ELSE 'HDP roste rychleji než mzdy'
+    END AS vztah_mzdy_hdp,
+    CASE 
+        WHEN ABS(food_price_growth - gdp_growth) <= 1 THEN 'koreluje s HDP'
+        WHEN food_price_growth > gdp_growth THEN 'ceny potravin rostou rychleji'
+        ELSE 'HDP roste rychleji než ceny potravin'        
+    END AS vztah_cen_potravin_hdp,
+    CASE
+        WHEN ABS(wages_growth - previous_year_gdp_growth) <= 1 THEN 'koreluje s HDP předchozího roku'
+        WHEN wages_growth > previous_year_gdp_growth THEN 'mzdy rostou rychleji než loňské HDP'
+        ELSE 'loňské HDP rostlo rychleji než mzdy'
+    END AS vztah_mzdy_lonske_hdp,
+    CASE
+        WHEN ABS(food_price_growth - previous_year_gdp_growth) <= 1 THEN 'koreluje s HDP předchozího roku'
+        WHEN food_price_growth > previous_year_gdp_growth THEN 'ceny potravin rostou rychleji než loňské HDP'
+        ELSE 'loňské HDP rostlo rychleji než ceny potravin'
+    END AS vztah_cen_potravin_lonske_hdp    
+FROM v_jana_veverkova_growth_overview
+WHERE payroll_year > 2006
+ORDER BY payroll_year;
 
 -- Korelační analýza - zjištění statistické souvislosti mezi ukazateli
-select
-    corr(gdp_growth, wages_growth) as korelace_hdp_mzdy,
-    corr(gdp_growth, food_price_growth) as korelace_hdp_ceny_potravin,
-    corr(previous_year_gdp_growth, wages_growth) as korelace_lonske_hdp_mzdy,
-    corr(previous_year_gdp_growth, food_price_growth) as korelace_lonske_hdp_ceny_potravin
-from v_jana_veverkova_growth_overview
-where payroll_year > 2006;
+SELECT
+    CORR(gdp_growth, wages_growth) AS korelace_hdp_mzdy,
+    CORR(gdp_growth, food_price_growth) AS korelace_hdp_ceny_potravin,
+    CORR(previous_year_gdp_growth, wages_growth) AS korelace_lonske_hdp_mzdy,
+    CORR(previous_year_gdp_growth, food_price_growth) AS korelace_lonske_hdp_ceny_potravin
+FROM v_jana_veverkova_growth_overview
+WHERE payroll_year > 2006;
 
 -- Doplňkový dotaz - počet let, kdy mzdy korelovaly s HDP
-select
-    sum(case 
-        when abs(wages_growth - gdp_growth) <= 1 then 1 
-        else 0 
-    end) as pocet_korelace_mzdy_hdp
-from v_jana_veverkova_growth_overview
-where payroll_year > 2006; ------ 3 roky
+SELECT
+    SUM(CASE 
+        WHEN ABS(wages_growth - gdp_growth) <= 1 THEN 1 
+        ELSE 0 
+    END) AS pocet_korelace_mzdy_hdp
+FROM v_jana_veverkova_growth_overview
+WHERE payroll_year > 2006;
 
 -- Doplňkový dotaz - počet let, kdy mzdy rostly rychleji než HDP
-select
-    sum(case 
-        when wages_growth > gdp_growth and abs(wages_growth - gdp_growth) > 1 then 1 
-        else 0 
-    end) as pocet_mzdy_rychleji
-from v_jana_veverkova_growth_overview
-where payroll_year > 2006;
+SELECT
+    SUM(CASE 
+        WHEN wages_growth > gdp_growth AND ABS(wages_growth - gdp_growth) > 1 THEN 1 
+        ELSE 0 
+    END) AS pocet_mzdy_rychleji
+FROM v_jana_veverkova_growth_overview
+WHERE payroll_year > 2006;
 
 -- Doplňkový dotaz - počet let, kdy HDP rostlo rychleji než mzdy
-select
-    sum(case 
-        when wages_growth < gdp_growth and abs(wages_growth - gdp_growth) > 1 then 1 
-        else 0 
-    end) as pocet_hdp_rychleji_nez_mzdy
-from v_jana_veverkova_growth_overview
-where payroll_year > 2006;
+SELECT
+    SUM(CASE 
+        WHEN wages_growth < gdp_growth AND ABS(wages_growth - gdp_growth) > 1 THEN 1 
+        ELSE 0 
+    END) AS pocet_hdp_rychleji_nez_mzdy
+FROM v_jana_veverkova_growth_overview
+WHERE payroll_year > 2006;
 
 -- Doplňkový dotaz - počet let, kdy ceny potravin korelovaly s HDP
-select
-    sum(case 
-        when abs(food_price_growth - gdp_growth) <= 1 then 1 
-        else 0 
-    end) as pocet_korelace_ceny_hdp
-from v_jana_veverkova_growth_overview
-where payroll_year > 2006;
+SELECT
+    SUM(CASE 
+        WHEN ABS(food_price_growth - gdp_growth) <= 1 THEN 1 
+        ELSE 0 
+    END) AS pocet_korelace_ceny_hdp
+FROM v_jana_veverkova_growth_overview
+WHERE payroll_year > 2006;
